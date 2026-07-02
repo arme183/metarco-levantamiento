@@ -1,0 +1,25 @@
+{
+  "name": "METARCO Levantamiento",
+  "short_name": "Levantamiento",
+  "description": "Levantamientos técnicos y reportes de mantenimiento — METARCO",
+  "start_url": "/cao-metarco/levantamiento.html",
+  "scope": "/cao-metarco/levantamiento.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d4a1e",
+  "theme_color": "#0d4a1e",
+  "icons": [
+    {
+      "src": "/cao-metarco/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/cao-metarco/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
