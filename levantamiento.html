@@ -200,6 +200,7 @@ textarea{resize:none;min-height:60px;line-height:1.5}
   <div class="mob-top">
     <button class="mob-menu-btn" onclick="document.querySelector('.sbar').classList.toggle('open')">☰</button>
     <span style="color:#fff;font-size:13px;font-weight:600">Levantamiento METARCO</span>
+    <span id="mobUserBadge" style="font-size:10px;color:rgba(255,255,255,.7);margin-left:4px"></span>
     <span style="margin-left:auto;font-size:11px;color:var(--green);font-family:'DM Mono',monospace" id="mobFolio"></span>
   </div>
 
@@ -209,6 +210,16 @@ textarea{resize:none;min-height:60px;line-height:1.5}
       <div class="logo-wrap">
         <div id="logo-sb"></div>
         <div class="logo-tag">LEVANTAMIENTO · METARCO</div>
+      </div>
+      <!-- Badge de usuario -->
+      <div style="margin:8px 14px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.25);border-radius:10px;padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(46,204,113,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👤</div>
+          <div style="overflow:hidden">
+            <div id="sbUserNombre" style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+            <div id="sbUserEmail" style="font-size:10px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+          </div>
+        </div>
       </div>
       <div style="padding:8px 14px 4px">
         <button onclick="abrirBorradores()" style="width:100%;padding:8px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.3);border-radius:8px;color:#2ECC71;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.02em">
@@ -590,6 +601,14 @@ function mostrarAppDirecto(nombre, email){
   S.data.supervisor = S.usuario;
   S.data.fecha = today();
   S.folio = 'LEV-...';
+
+  // Poblar badge de usuario
+  var sbNombre = document.getElementById('sbUserNombre');
+  var sbEmail  = document.getElementById('sbUserEmail');
+  var mobBadge = document.getElementById('mobUserBadge');
+  if(sbNombre) sbNombre.textContent = nombre || '—';
+  if(sbEmail)  sbEmail.textContent  = email  || '—';
+  if(mobBadge) mobBadge.textContent = nombre ? '· '+nombre.split(' ')[0] : '';
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   document.getElementById('folio-tag-sb').textContent = '...';
