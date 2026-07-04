@@ -550,6 +550,39 @@ window.addEventListener('load', async ()=>{
 });
 
 function mostrarApp(nombre, email){
+  // Verificar acceso en Azure tabla usuarios
+  var AZ_BASE_LEV = 'https://metarcostorage.table.core.windows.net';
+  var AZ_SAS_LEV = '?sv=2026-02-06&ss=bfqt&srt=o&sp=rwdlacupiytfx&se=2028-01-01T09:03:16Z&st=2026-06-02T00:48:16Z&spr=https&sig=jopE8S7LFpN79M86LWlZ5B%2Bws5%2BYbZvECNdVUAtHiGI%3D';
+  var rk = email.replace(/@/g,'_AT_').replace(/\./g,'_');
+  var url = AZ_BASE_LEV+'/usuarios(PartitionKey=\'usuarios\',RowKey=\''+encodeURIComponent(rk)+'\')'+AZ_SAS_LEV;
+  
+  fetch(url, {headers:{'Accept':'application/json;odata=nometadata'}})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(u){
+      // Admin y coordinador siempre tienen acceso
+      var rolConAcceso = u && (u.rol==='admin' || u.rol==='coordinador');
+      var accesoExplicito = u && (u.accesoLevantamiento===true || u.accesoLevantamiento==='true');
+      
+      if(!u){
+        // Usuario no encontrado en el sistema
+        document.getElementById('loginAlerta').textContent = 'Tu cuenta no está registrada en el sistema METARCO. Contacta al administrador.';
+        return;
+      }
+      if(!rolConAcceso && !accesoExplicito){
+        // Sin acceso
+        document.getElementById('loginAlerta').innerHTML = '🔒 Sin acceso a esta aplicación.<br><span style="font-size:11px">Contacta a <strong>a.medina@metarco.com.mx</strong> para solicitar acceso.</span>';
+        return;
+      }
+      // Tiene acceso — mostrar app
+      mostrarAppDirecto(nombre, email);
+    })
+    .catch(function(){
+      // Si falla la verificación, permitir acceso (no bloquear por error de red)
+      mostrarAppDirecto(nombre, email);
+    });
+}
+
+function mostrarAppDirecto(nombre, email){
   S.usuario = nombre || 'Supervisor';
   S.email = email || '';
   S.mant.tecnico = S.usuario;
