@@ -619,9 +619,11 @@ function mostrarAppDirecto(nombre, email){
     document.getElementById('mobFolio').textContent = folio;
   });
   waitPDF();
-  // Mostrar pantalla de selección de modo
-  if(!S.modo) mostrarSelectorModo();
-  else render();
+  // Autoguardado: ofrecer recuperar un levantamiento sin terminar (Tarea #2)
+  if(!S.modo && _autosaveRestoreOffer()){ render(); }
+  else if(!S.modo){ mostrarSelectorModo(); }
+  else { render(); }
+  _autosaveStart();
 }
 
 function mostrarSelectorModo(){
@@ -1333,7 +1335,7 @@ async function guardarBorrador(){
       var btn = document.getElementById('pdf-btn');
     });
     await guardarEnAzure(urlsSP);
-    showToast('Borrador guardado — fotos en SharePoint ✓','ok');
+    showToast('Borrador guardado — fotos en SharePoint ✓','ok'); _autosaveMarkSynced();
   } catch(e){ showToast('Error guardando: '+e.message,'err'); }
   S.enviando = false; render();
 }
@@ -1424,7 +1426,7 @@ async function enviarAhora(){
     try{ await subirPDFSP(S.folio, pdfBlob); }catch(e){ console.warn('Error subiendo PDF a SP', e); }
     const b64 = getPDFBase64();
     await enviarCorreo(b64);
-    showToast('Correo enviado · fotos respaldadas en SharePoint ✓','ok');
+    showToast('Correo enviado · fotos respaldadas en SharePoint ✓','ok'); _autosaveClear();
   } catch(e){ showToast('Error al enviar: '+e.message,'err'); }
   S.enviando=false; render();
 }
@@ -1443,7 +1445,7 @@ async function guardarYEnviar(){
     // Marcar como enviado
     const entity = {PartitionKey:'levantamientos',RowKey:S.folio,estado:'enviado',fechaEnvio:new Date().toISOString()};
     await azUpsert('levantamientos',entity);
-    showToast('Guardado y enviado · respaldo en SharePoint ✓','ok');
+    showToast('Guardado y enviado · respaldo en SharePoint ✓','ok'); _autosaveClear();
   } catch(e){ showToast('Error: '+e.message,'err'); }
   S.enviando=false; render();
 }
@@ -1811,7 +1813,7 @@ async function guardarBorradorMant(){
       estado:'borrador',fechaGuardado:new Date().toISOString()
     };
     await azUpsert('levantamientos',entity);
-    showToast('Borrador guardado ✓','ok');
+    showToast('Borrador guardado ✓','ok'); _autosaveMarkSynced();
   }catch(e){showToast('Error: '+e.message,'err');}
   S.enviando=false; render();
 }
@@ -1842,7 +1844,7 @@ async function guardarYEnviarMant(){
     // Enviar correo
     var b64 = doc.output('datauristring').split(',')[1];
     await enviarCorreo(b64);
-    showToast('Reporte enviado y guardado en SharePoint ✓','ok');
+    showToast('Reporte enviado y guardado en SharePoint ✓','ok'); _autosaveClear();
   }catch(e){showToast('Error: '+e.message,'err');}
   S.enviando=false; render();
 }
@@ -1938,6 +1940,7 @@ document.getElementById('modalBorradores').addEventListener('click', function(e)
 
 function nuevoLevantamiento(){
   if(!confirm('¿Iniciar un nuevo registro? Se perderá el progreso no guardado.')) return;
+  _autosaveClear();
   S.modo=''; S.step=0; S.elementos={}; S.croquis=null;
   S.data={cliente:'',proyecto:'',direccion:'',fecha:today(),supervisor:S.usuario,tipo:'Estructura',contrato:''};
   S.condPlanta={condiciones:[], nuevaCond:''};
@@ -1952,6 +1955,78 @@ function nuevoLevantamiento(){
     document.getElementById('mobFolio').textContent=folio;
   });
   render();
+}
+
+// ─── AUTOGUARDADO (Tarea #2) ──────────────────────────────────
+// Guarda el estado en el navegador de forma continua para no perder trabajo
+// en campo si la app se recarga o el teléfono la cierra. No persiste las fotos
+// (igual que los borradores actuales: las fotos se vuelven a tomar).
+var _AUTOSAVE_KEY='metarco_lev_autosave';
+var _autosaveLast='';      // último snapshot serializado en local
+var _autosaveDirty=false;  // hay cambios desde el último guardado/envío
+var _autosaveOn=false;
+function _autosaveSnapshot(){
+  var elem={};
+  Object.keys(S.elementos||{}).forEach(function(k){ elem[k]=Object.assign({},S.elementos[k],{fotos:[]}); });
+  return { v:1, ts:new Date().toISOString(),
+    modo:S.modo, step:S.step, folio:S.folio, usuario:S.usuario, email:S.email,
+    data:S.data, elementos:elem, condPlanta:S.condPlanta, condComercial:S.condComercial,
+    destinos:S.destinos, mant:Object.assign({},S.mant,{fotosAntes:[],fotosDespues:[],firma:null}) };
+}
+function _autosaveHasContent(snap){
+  if(!snap||!snap.modo) return false;
+  var d=snap.data||{}, m=snap.mant||{};
+  return !!(d.cliente||d.proyecto||d.direccion||
+    (snap.elementos&&Object.keys(snap.elementos).length)||
+    m.cliente||m.direccion||(m.actividades&&m.actividades.length)|| snap.step>0);
+}
+function _autosaveSaveLocal(){
+  try{
+    var snap=_autosaveSnapshot();
+    if(!_autosaveHasContent(snap)) return;
+    var str=JSON.stringify(snap);
+    if(str===_autosaveLast) return;
+    localStorage.setItem(_AUTOSAVE_KEY,str);
+    _autosaveLast=str; _autosaveDirty=true;
+  }catch(e){ /* cuota u otro: nunca romper la app */ }
+}
+function _autosaveMarkSynced(){ _autosaveDirty=false; }
+function _autosaveClear(){ try{ localStorage.removeItem(_AUTOSAVE_KEY); }catch(e){} _autosaveLast=''; _autosaveDirty=false; }
+function _autosaveStart(){
+  if(_autosaveOn) return; _autosaveOn=true;
+  setInterval(function(){
+    var app=document.getElementById('appScreen');
+    if(!app||app.style.display==='none'||!S.modo) return;
+    _autosaveSaveLocal();
+  },2000);
+  window.addEventListener('beforeunload',function(e){
+    if(_autosaveDirty){ e.preventDefault(); e.returnValue=''; }
+  });
+}
+function _autosaveRestoreOffer(){
+  var raw; try{ raw=localStorage.getItem(_AUTOSAVE_KEY); }catch(e){ return false; }
+  if(!raw) return false;
+  var snap; try{ snap=JSON.parse(raw); }catch(e){ _autosaveClear(); return false; }
+  if(!_autosaveHasContent(snap)) return false;
+  var quien=(snap.data&&snap.data.cliente)||(snap.mant&&snap.mant.cliente)||'sin nombre';
+  if(!confirm('Tienes un levantamiento sin terminar de "'+quien+'".\n\nAceptar = continuar donde lo dejaste\nCancelar = empezar uno nuevo')){
+    _autosaveClear(); return false;
+  }
+  S.modo=snap.modo||'levantamiento';
+  S.step=snap.step||0;
+  S.folio=snap.folio||S.folio;
+  if(snap.data) S.data=Object.assign(S.data,snap.data);
+  S.elementos=snap.elementos||{};
+  Object.keys(S.elementos).forEach(function(k){ if(!S.elementos[k].fotos) S.elementos[k].fotos=[]; });
+  if(snap.condPlanta) S.condPlanta=snap.condPlanta;
+  if(snap.condComercial) S.condComercial=snap.condComercial;
+  if(snap.destinos) S.destinos=snap.destinos;
+  if(snap.mant){ S.mant=Object.assign(S.mant,snap.mant); S.mant.fotosAntes=[]; S.mant.fotosDespues=[]; S.mant.firma=null; }
+  S.fotos=[]; S.croquis=null;
+  var f1=document.getElementById('folio-tag-sb'); if(f1) f1.textContent=S.folio;
+  var f2=document.getElementById('mobFolio'); if(f2) f2.textContent=S.folio;
+  _autosaveLast='';
+  return true;
 }
 
 // ─── KICK ─────────────────────────────────────────────────────
