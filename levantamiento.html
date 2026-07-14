@@ -504,7 +504,8 @@ async function genFolioSecuencial(){
   try{
     // Leer todos los levantamientos del año actual
     var anio = new Date().getFullYear();
-    var url = AZ_BASE+'/levantamientos'+AZ_SAS+'&$filter=startswith(RowKey,\'LEV-'+anio+'\')&$select=RowKey';
+    var filtro = "RowKey ge 'LEV-"+anio+"-0000' and RowKey le 'LEV-"+anio+"-9999'";
+    var url = AZ_BASE+'/levantamientos'+AZ_SAS+'&$filter='+encodeURIComponent(filtro)+'&$select=RowKey';
     var r = await fetch(url, {headers:azHdr()});
     if(!r.ok) return genFolio(); // fallback a aleatorio si falla
     var data = await r.json();
@@ -521,7 +522,7 @@ async function genFolioSecuencial(){
     return genFolio(); // fallback si hay error
   }
 }
-function h2r(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function h2r(h){ h=h.replace('#',''); if(h.length===3){ h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; } return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
 function today(){ return new Date().toISOString().slice(0,10); }
 
 // ─── MSAL ─────────────────────────────────────────────────────
